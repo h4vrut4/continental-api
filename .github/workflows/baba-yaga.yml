@@ -1,5 +1,7 @@
 name: h4vrut4-baba-yaga
 
+# Keep each approval attempt tied to a fresh pull-request run.
+
 on:
   pull_request:
 
